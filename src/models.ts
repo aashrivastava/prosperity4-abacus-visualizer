@@ -1,3 +1,25 @@
+export interface ResultLog {
+  submissionId: string;
+  activitiesLog: string;
+  logs: ResultLogItems[];
+  tradeHistory:ResultLogTradeHistoryItem[]
+}
+
+export interface ResultLogItems {
+  sandboxLog: string;
+  lambdaLog: string;
+  timestamp: number;
+}
+
+export interface ResultLogTradeHistoryItem {
+  timestamp: number;
+  buyer: string;
+  seller: string;
+  currency: string;
+  price: number;
+  quantity: number;
+}
+
 export interface UserSummary {
   id: number;
   firstName: string;

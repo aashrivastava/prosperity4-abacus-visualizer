@@ -19,6 +19,7 @@ import {
   OrderDepth,
   Product,
   ProsperitySymbol,
+  ResultLog,
   Trade,
   TradingState,
 } from '../models.ts';
@@ -43,16 +44,16 @@ function getColumnValues(columns: string[], indices: number[]): number[] {
   return values;
 }
 
-function getActivityLogs(logLines: string[]): ActivityLogRow[] {
-  const headerIndex = logLines.indexOf('Activities log:');
-  if (headerIndex === -1) {
-    return [];
-  }
-
+function getActivityLogs(logLines: string): ActivityLogRow[] {
+  // const headerIndex = logLines.indexOf('Activities log:');
+  // if (headerIndex === -1) {
+  //   return [];
+  // }
+  const lines = logLines.split('\n');
   const rows: ActivityLogRow[] = [];
 
-  for (let i = headerIndex + 2; i < logLines.length; i++) {
-    const line = logLines[i];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
     if (line === '') {
       break;
     }
@@ -191,56 +192,45 @@ function decompressDataRow(compressed: CompressedAlgorithmDataRow, sandboxLogs: 
   };
 }
 
-function getAlgorithmData(logLines: string[]): AlgorithmDataRow[] {
-  const headerIndex = logLines.indexOf('Sandbox logs:');
-  if (headerIndex === -1) {
-    return [];
-  }
+function getAlgorithmData(resultLog: ResultLog): AlgorithmDataRow[] {
+  // const headerIndex = logLines.indexOf('Sandbox logs:');
+  // if (headerIndex === -1) {
+  //   return [];
+  // }
 
   const rows: AlgorithmDataRow[] = [];
   let nextSandboxLogs = '';
 
-  const sandboxLogPrefix = '  "sandboxLog": ';
-  const lambdaLogPrefix = '  "lambdaLog": ';
 
-  for (let i = headerIndex + 1; i < logLines.length; i++) {
-    const line = logLines[i];
-    if (line.endsWith(':')) {
-      break;
-    }
 
-    if (line.startsWith(sandboxLogPrefix)) {
-      nextSandboxLogs = JSON.parse(line.substring(sandboxLogPrefix.length, line.length - 1)).trim();
+  for (const lg of resultLog.logs) {
 
-      if (nextSandboxLogs.startsWith('Conversion request')) {
-        const lastRow = rows[rows.length - 1];
-        lastRow.sandboxLogs += (lastRow.sandboxLogs.length > 0 ? '\n' : '') + nextSandboxLogs;
+    // nextSandboxLogs = lg.sandboxLog.trim()
+    //
+    // if (nextSandboxLogs.startsWith('Conversion request')) {
+    //   const lastRow = rows[rows.length - 1];
+    //   lastRow.sandboxLogs += (lastRow.sandboxLogs.length > 0 ? '\n' : '') + nextSandboxLogs;
+    //
+    //   nextSandboxLogs = '';
+    // }
 
-        nextSandboxLogs = '';
-      }
-
+    const lambdaLog = lg.lambdaLog.trim();
+    if (lambdaLog === '') {
       continue;
     }
-
-    if (!line.startsWith(lambdaLogPrefix) || line === '  "lambdaLog": "",') {
-      continue;
-    }
-
-    const start = line.indexOf('[[');
-    const end = line.lastIndexOf(']') + 1;
 
     try {
-      const compressedDataRow = JSON.parse(JSON.parse('"' + line.substring(start, end) + '"'));
+      const compressedDataRow = JSON.parse(lambdaLog);
       rows.push(decompressDataRow(compressedDataRow, nextSandboxLogs));
     } catch (err) {
-      console.log(line);
+      console.log(lambdaLog);
       console.error(err);
 
       throw new AlgorithmParseError(
         (
           <>
             <Text>Logs are in invalid format. Could not parse the following line:</Text>
-            <Text>{line}</Text>
+            <Text>{lambdaLog}</Text>
           </>
         ),
       );
@@ -251,10 +241,12 @@ function getAlgorithmData(logLines: string[]): AlgorithmDataRow[] {
 }
 
 export function parseAlgorithmLogs(logs: string, summary?: AlgorithmSummary): Algorithm {
-  const logLines = logs.trim().split(/\r?\n/);
+  // const logLines = logs.trim().split(/\r?\n/);
 
-  const activityLogs = getActivityLogs(logLines);
-  const data = getAlgorithmData(logLines);
+  const resultLog = JSON.parse(logs) as ResultLog;
+
+  const activityLogs = getActivityLogs(resultLog.activitiesLog);
+  const data = getAlgorithmData(resultLog);
 
   if (activityLogs.length === 0 && data.length === 0) {
     throw new AlgorithmParseError(

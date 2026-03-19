@@ -19,6 +19,10 @@ export function TimestampsCard(): ReactNode {
   const timestampMax = algorithm.data[algorithm.data.length - 1].state.timestamp;
   const timestampStep = algorithm.data[1].state.timestamp - algorithm.data[0].state.timestamp;
 
+  // const timestampMin = 0;
+  // const timestampMax = 1999900;
+  // const timestampStep = 100;
+
   const [timestamp, setTimestamp] = useState(timestampMin);
 
   const marks: SliderProps['marks'] = [];
