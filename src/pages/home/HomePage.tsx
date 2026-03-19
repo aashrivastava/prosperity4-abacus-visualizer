@@ -181,7 +181,6 @@ class Trader:
         </HomeCard>
 
         <LoadFromFile />
-        <LoadFromProsperity />
         <LoadFromUrl />
       </Stack>
     </Container>
