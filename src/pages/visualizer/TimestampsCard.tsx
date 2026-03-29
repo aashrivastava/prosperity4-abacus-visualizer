@@ -1,6 +1,6 @@
-import { Slider, SliderProps, Text } from '@mantine/core';
+import { Group, NumberInput, Slider, SliderProps, Text, Title } from '@mantine/core';
 import { useHotkeys } from '@mantine/hooks';
-import { ReactNode, useState } from 'react';
+import { KeyboardEvent, ReactNode, useEffect, useState } from 'react';
 import { AlgorithmDataRow } from '../../models.ts';
 import { useStore } from '../../store.ts';
 import { formatNumber } from '../../utils/format.ts';
@@ -24,6 +24,11 @@ export function TimestampsCard(): ReactNode {
   // const timestampStep = 100;
 
   const [timestamp, setTimestamp] = useState(timestampMin);
+  const [inputValue, setInputValue] = useState<number | string>(timestampMin);
+
+  useEffect(() => {
+    setInputValue(timestamp);
+  }, [timestamp]);
 
   const marks: SliderProps['marks'] = [];
   for (let i = timestampMin; i < timestampMax; i += (timestampMax + 100) / 4) {
@@ -33,13 +38,51 @@ export function TimestampsCard(): ReactNode {
     });
   }
 
+  function snapToNearest(value: number): number {
+    const clamped = Math.max(timestampMin, Math.min(timestampMax, value));
+    return Math.round((clamped - timestampMin) / timestampStep) * timestampStep + timestampMin;
+  }
+
+  function commit(): void {
+    const parsed = typeof inputValue === 'number' ? inputValue : Number(inputValue);
+    if (!isNaN(parsed)) {
+      setTimestamp(snapToNearest(parsed));
+    }
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>): void {
+    if (e.key === 'Enter') commit();
+  }
+
   useHotkeys([
     ['ArrowLeft', () => setTimestamp(timestamp === timestampMin ? timestamp : timestamp - timestampStep)],
     ['ArrowRight', () => setTimestamp(timestamp === timestampMax ? timestamp : timestamp + timestampStep)],
   ]);
 
   return (
-    <VisualizerCard title="Timestamps">
+    <VisualizerCard>
+      <Group align="center" gap="xs" mb="xs">
+        <Title order={4}>Timestamps</Title>
+        <NumberInput
+          value={inputValue}
+          onChange={value => {
+            setInputValue(value);
+            // Stepper buttons produce a valid snapped timestamp — commit immediately.
+            // Partial typed values (e.g. 273 when heading to 27300) won't match and are left pending.
+            if (typeof value === 'number' && snapToNearest(value) === value) {
+              setTimestamp(value);
+            }
+          }}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          min={timestampMin}
+          max={timestampMax}
+          step={timestampStep}
+          style={{ width: 150 }}
+          styles={{ input: { fontWeight: 700, fontSize: 'var(--mantine-font-size-sm)' } }}
+        />
+      </Group>
+
       <Slider
         min={timestampMin}
         max={timestampMax}
