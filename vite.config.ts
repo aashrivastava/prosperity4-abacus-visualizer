@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/imc-prosperity-4-visualizer/',
+  base: '/prosperity4-abacus-visualizer/',
   build: {
     minify: false,
     sourcemap: true,
