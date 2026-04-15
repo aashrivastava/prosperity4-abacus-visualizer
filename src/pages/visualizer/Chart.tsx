@@ -21,7 +21,7 @@ HighchartsOfflineExporting(Highcharts);
 // To make theme switching work, we merge theme options into the local chart options instead
 // This way we don't override the global defaults and can change themes without refreshing
 // This function is a little workaround to be able to get the options a theme overrides
-function getThemeOptions(theme: (highcharts: typeof Highcharts) => void): Highcharts.Options {
+export function getThemeOptions(theme: (highcharts: typeof Highcharts) => void): Highcharts.Options {
   const highchartsMock = {
     _modules: {
       'Core/Globals.js': {
