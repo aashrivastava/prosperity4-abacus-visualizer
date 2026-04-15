@@ -415,18 +415,7 @@ export function OrderBookScatterChart({
         numberFormatter: formatNumber,
         events: {
           load() {
-            const chart = this;
-            // Use pointer.normalize for correct chart-relative coordinates
-            Highcharts.addEvent(chart.container, 'mousemove', (e: Event) => {
-              const normalized = chart.pointer.normalize(e as any);
-              const xAxis = chart.xAxis[0];
-              if (!xAxis || !normalized) return;
-              const xVal = xAxis.toValue(normalized.chartX, false);
-              const snapped = snapToTimestamp(xVal);
-              if (snapped !== null) onHoverTimestamp(snapped);
-            });
-
-            // Custom tooltip header
+            // Custom tooltip header — also drives onHoverTimestamp so log viewer matches
             Highcharts.addEvent(this.tooltip, 'headerFormatter', (e: any) => {
               if (e.isFooter) return true;
               let timestamp = e.labelConfig.point.x;
@@ -436,6 +425,12 @@ export function OrderBookScatterChart({
                 if (timestamp + 100 * e.labelConfig.point.dataGroup.length >= lastTimestamp) {
                   timestamp = lastTimestamp;
                 }
+              }
+              // Snap to nearest real timestamp so log viewer gets valid data
+              const snapped = snapToTimestamp(timestamp);
+              if (snapped !== null) {
+                timestamp = snapped;
+                onHoverTimestamp(snapped);
               }
               e.text = `Timestamp ${formatNumber(timestamp)}<br/>`;
               return false;
