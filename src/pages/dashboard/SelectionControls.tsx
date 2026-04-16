@@ -1,4 +1,4 @@
-import { MultiSelect, Paper, Select, Stack, Title } from '@mantine/core';
+import { MultiSelect, Paper, Select, Stack, Switch, Title } from '@mantine/core';
 import { ReactNode } from 'react';
 import { MidPriceMode } from './OrderBookScatterChart.tsx';
 
@@ -9,8 +9,8 @@ export interface SelectionControlsProps {
   indicatorKeys: string[];
   selectedIndicators: string[];
   onIndicatorsChange: (indicators: string[]) => void;
-  normalizationIndicator: string | null;
-  onNormalizationChange: (indicator: string | null) => void;
+  normalizeEnabled: boolean;
+  onNormalizeChange: (enabled: boolean) => void;
   midPriceMode: MidPriceMode;
   onMidPriceModeChange: (mode: MidPriceMode) => void;
 }
@@ -29,8 +29,8 @@ export function SelectionControls({
   indicatorKeys,
   selectedIndicators,
   onIndicatorsChange,
-  normalizationIndicator,
-  onNormalizationChange,
+  normalizeEnabled,
+  onNormalizeChange,
   midPriceMode,
   onMidPriceModeChange,
 }: SelectionControlsProps): ReactNode {
@@ -60,6 +60,15 @@ export function SelectionControls({
           allowDeselect={false}
         />
 
+        {/* Normalize prices relative to selected mid-price mode */}
+        <Switch
+          label="Normalize"
+          size="xs"
+          checked={normalizeEnabled}
+          onChange={e => onNormalizeChange(e.currentTarget.checked)}
+          disabled={midPriceMode === 'none'}
+        />
+
         {/* Indicator overlay selector */}
         {indicatorKeys.length > 0 && (
           <MultiSelect
@@ -71,18 +80,6 @@ export function SelectionControls({
             placeholder="Select indicators..."
             clearable
             searchable
-          />
-        )}
-
-        {/* Normalization dropdown */}
-        {indicatorKeys.length > 0 && (
-          <Select
-            label="Normalize by"
-            size="xs"
-            data={[{ value: '__none__', label: 'None' }, ...indicatorKeys.map(k => ({ value: k, label: k }))]}
-            value={normalizationIndicator ?? '__none__'}
-            onChange={val => onNormalizationChange(val === '__none__' ? null : val)}
-            allowDeselect={false}
           />
         )}
       </Stack>

@@ -11,6 +11,7 @@ import { DownsamplingConfig, PerformanceControls } from './PerformanceControls.t
 import { SelectionControls } from './SelectionControls.tsx';
 import { TradeFilterControls } from './TradeFilterControls.tsx';
 import { buildTraderColorMap, collectTraderIds, parseTraderData } from './trader-utils.ts';
+import { computeMidPriceMaps } from './mid-price-utils.ts';
 
 export function DashboardPage(): ReactNode {
   const algorithm = useStore(state => state.algorithm);
@@ -37,7 +38,7 @@ function DashboardContent(): ReactNode {
   // ── State ──
   const [selectedProduct, setSelectedProduct] = useState<string>(products[0] || '');
   const [hoveredTimestamp, setHoveredTimestamp] = useState<number | null>(null);
-  const [normalizationIndicator, setNormalizationIndicator] = useState<string | null>(null);
+  const [normalizeEnabled, setNormalizeEnabled] = useState(false);
   const [showOrderBook, setShowOrderBook] = useState(true);
   const [showAllTraders, setShowAllTraders] = useState(true);
   const [traderVisibility, setTraderVisibility] = useState<Record<string, boolean>>({});
@@ -82,17 +83,20 @@ function DashboardContent(): ReactNode {
     return { indicatorKeys: Array.from(keysSet).sort(), indicatorData: dataMap };
   }, [algorithm.data]);
 
-  // Build normalization map: timestamp → indicator value
+  // Precompute mid-price maps for normalization (Mid, WallMid, Microprice)
+  const { midMap, wallMidMap, micropriceMap } = useMemo(
+    () => computeMidPriceMaps(algorithm, selectedProduct),
+    [algorithm, selectedProduct],
+  );
+
+  // Normalization map derived from current mid-price mode selection
   const normalizationMap = useMemo((): Map<number, number> | null => {
-    if (!normalizationIndicator) return null;
-    const series = indicatorData.get(normalizationIndicator);
-    if (!series) return null;
-    const map = new Map<number, number>();
-    for (const [ts, val] of series) {
-      map.set(ts, val);
-    }
-    return map;
-  }, [normalizationIndicator, indicatorData]);
+    if (!normalizeEnabled || midPriceMode === 'none') return null;
+    if (midPriceMode === 'mid') return midMap;
+    if (midPriceMode === 'wallmid') return wallMidMap;
+    if (midPriceMode === 'microprice') return micropriceMap;
+    return null;
+  }, [normalizeEnabled, midPriceMode, midMap, wallMidMap, micropriceMap]);
 
   // ── Callbacks ──
   const handleHoverTimestamp = useCallback((ts: number | null) => setHoveredTimestamp(ts), []);
@@ -184,8 +188,8 @@ function DashboardContent(): ReactNode {
               indicatorKeys={indicatorKeys}
               selectedIndicators={selectedIndicators}
               onIndicatorsChange={setSelectedIndicators}
-              normalizationIndicator={normalizationIndicator}
-              onNormalizationChange={setNormalizationIndicator}
+              normalizeEnabled={normalizeEnabled}
+              onNormalizeChange={setNormalizeEnabled}
               midPriceMode={midPriceMode}
               onMidPriceModeChange={setMidPriceMode}
             />

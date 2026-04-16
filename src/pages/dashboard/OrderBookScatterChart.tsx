@@ -11,6 +11,7 @@ import { Algorithm, ProsperitySymbol, ResultLogTradeHistoryItem } from '../../mo
 import { getAskColor } from '../../utils/colors.ts';
 import { formatNumber } from '../../utils/format.ts';
 import { getThemeOptions } from '../visualizer/Chart.tsx';
+import { findWallPrice } from './mid-price-utils.ts';
 import { classifyTrade, getDashboardBidColor } from './trader-utils.ts';
 
 HighchartsAccessibility(Highcharts);
@@ -18,49 +19,6 @@ HighchartsExporting(Highcharts);
 HighchartsOfflineExporting(Highcharts);
 
 export type MidPriceMode = 'mid' | 'wallmid' | 'microprice' | 'none';
-
-// Find the "wall" price on one side of the book.
-// 1. Identify the level with max volume (the wall).
-// 2. Compute std of volumes across all levels.
-// 3. Keep levels whose volume is within nStd of the max.
-// 4. Return the most aggressive price among those (max for bids, min for asks).
-function findWallPrice(
-  prices: number[],
-  volumes: number[],
-  nStd: number,
-  side: 'bid' | 'ask',
-): number | null {
-  if (prices.length === 0) return null;
-
-  // Find max volume
-  let maxVol = 0;
-  for (const v of volumes) {
-    if (v > maxVol) maxVol = v;
-  }
-  if (maxVol === 0) return prices[0];
-
-  // Compute volume std
-  const n = volumes.length;
-  const mean = volumes.reduce((a, b) => a + b, 0) / n;
-  const variance = volumes.reduce((sum, v) => sum + (v - mean) ** 2, 0) / n;
-  const std = Math.sqrt(variance);
-
-  // Threshold: levels with volume >= maxVol - nStd * std
-  const threshold = maxVol - nStd * std;
-
-  // Filter to significant levels, pick most aggressive price
-  let result: number | null = null;
-  for (let i = 0; i < prices.length; i++) {
-    if (volumes[i] >= threshold) {
-      if (result === null) {
-        result = prices[i];
-      } else {
-        result = side === 'bid' ? Math.max(result, prices[i]) : Math.min(result, prices[i]);
-      }
-    }
-  }
-  return result;
-}
 
 export interface OrderBookScatterChartProps {
   algorithm: Algorithm;
@@ -126,14 +84,34 @@ export function OrderBookScatterChart({
     [timestamps],
   );
 
-  // Normalize a price value at a given timestamp
+  // Sorted keys from normalization map for nearest-timestamp lookup
+  const normTimestamps = useMemo(() => {
+    if (!normalizationMap) return [];
+    return Array.from(normalizationMap.keys()).sort((a, b) => a - b);
+  }, [normalizationMap]);
+
+  // Normalize a price value at a given timestamp (snaps to nearest norm timestamp)
   const normalize = useCallback(
     (price: number, timestamp: number): number => {
-      if (!normalizationMap) return price;
-      const normVal = normalizationMap.get(timestamp);
+      if (!normalizationMap || normTimestamps.length === 0) return price;
+      // Try exact match first
+      const exact = normalizationMap.get(timestamp);
+      if (exact !== undefined) return price - exact;
+      // Binary search for nearest timestamp
+      let lo = 0;
+      let hi = normTimestamps.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (normTimestamps[mid] < timestamp) lo = mid + 1;
+        else hi = mid;
+      }
+      const nearest = lo > 0 && Math.abs(normTimestamps[lo - 1] - timestamp) < Math.abs(normTimestamps[lo] - timestamp)
+        ? normTimestamps[lo - 1]
+        : normTimestamps[lo];
+      const normVal = normalizationMap.get(nearest);
       return normVal !== undefined ? price - normVal : price;
     },
-    [normalizationMap],
+    [normalizationMap, normTimestamps],
   );
 
   // Mid price line series — always present with mouse tracking for crosshair anchor
